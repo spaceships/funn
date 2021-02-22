@@ -79,7 +79,7 @@ pub fn bench(
         "* benchmarking garbler streaming to evaluator".green()
     );
 
-    let mut mb = pbr::MultiBar::new();
+    let mb = pbr::MultiBar::new();
     let mut p1 = mb.create_bar(niters as u64);
     p1.message("Test ");
     let mut p2 = mb.create_bar(nn.nlayers() as u64);

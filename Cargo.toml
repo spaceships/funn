@@ -1,5 +1,5 @@
 [package]
-name = "garbled-neural-net-experiments"
+name = "funn"
 version = "0.1.0"
 authors = ["Brent Carmer <bcarmer@galois.com>"]
 edition = "2018"

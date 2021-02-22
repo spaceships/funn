@@ -1,5 +1,5 @@
-garbled neural net experiments
-==============================
+fuNN (fork of garbled neural net experiments)
+=============================================
 This repo contains an implementation of convolutional neural networks using arithmetic
 garbled circuits, via [fancy-garbling](https://github.com/GaloisInc/swanky). 
 It contains the models we ran our experiments on in our paper, [Garbled Neural Networks

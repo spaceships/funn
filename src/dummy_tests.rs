@@ -30,7 +30,7 @@ pub fn arith_accuracy_test(
 
     let mut errors = 0;
 
-    let mut mb = pbr::MultiBar::new();
+    let mb = pbr::MultiBar::new();
     let mut p1 = mb.create_bar(images.len() as u64);
     p1.message("Test ");
     let mut p2 = mb.create_bar(nn.nlayers() as u64);
@@ -114,7 +114,7 @@ pub fn boolean_accuracy_test(
 
     let first_layer_nbits = *bitwidth.first().unwrap();
 
-    let mut mb = pbr::MultiBar::new();
+    let mb = pbr::MultiBar::new();
     let mut p1 = mb.create_bar(images.len() as u64);
     p1.message("Test ");
     let mut p2 = mb.create_bar(nn.nlayers() as u64);

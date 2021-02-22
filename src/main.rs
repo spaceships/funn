@@ -1,5 +1,3 @@
-#![feature(atomic_min_max)]
-
 pub mod direct_tests;
 pub mod dummy_tests;
 pub mod garbling_benches;
@@ -326,7 +324,9 @@ fn read_tests(filename: &str, num: Option<usize>) -> Vec<Array3<i64>> {
             iter.collect()
         }
     } else if filename.ends_with(".json") {
-        let file = File::open(filename).expect("couldn't open file!");
+        let file = std::io::BufReader::new(
+            File::open(filename).expect("couldn't open file!")
+        );
         let obj: Value = serde_json::from_reader(file).expect("couldn't parse json!");
         let iter = obj
             .as_array()
@@ -355,7 +355,9 @@ fn read_labels(filename: &str) -> Vec<Vec<i64>> {
             })
             .collect()
     } else if filename.ends_with(".json") {
-        let file = File::open(filename).expect("couldn't open file!");
+        let file = std::io::BufReader::new(
+            File::open(filename).expect("couldn't open file!")
+        );
         let obj: Value = serde_json::from_reader(file).expect("couldn't parse json!");
 
         obj.as_array()
