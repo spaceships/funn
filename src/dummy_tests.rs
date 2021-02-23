@@ -64,7 +64,6 @@ pub fn arith_accuracy_test(
             &inp,
             &moduli,
             Some(&mut p2),
-            8,
             secret_weights,
             true,
             accuracy,
@@ -153,7 +152,6 @@ pub fn boolean_accuracy_test(
             &inp,
             bitwidth,
             Some(&mut p2),
-            8,
             secret_weights,
             true,
         );

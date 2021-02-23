@@ -319,7 +319,6 @@ impl Layer {
         q: u128, // input modulus
         output_mod: u128,
         input: &Array3<CrtBundle<W>>,
-        _: usize,
         secret_weights: bool,
         secret_weights_owned: bool,
         accuracy: &Accuracy,
@@ -407,9 +406,7 @@ impl Layer {
         &self,
         b: &mut F,
         nbits: usize,
-        _: usize,
         input: &Array3<BinaryBundle<W>>,
-        _: usize,
         secret_weights: bool,
         secret_weights_owned: bool,
     ) -> Array3<BinaryBundle<W>>
@@ -480,6 +477,51 @@ impl Layer {
             zero: b.bin_constant_bundle(0u128, nbits).unwrap(),
         };
         self.eval(b, &input, &ops, secret_weights)
+    }
+
+    pub fn as_binary_no_secret_weights<W, F>(
+        &self,
+        b: &mut F,
+        nbits: usize,
+        input: &Array3<BinaryBundle<W>>,
+    ) -> Array3<BinaryBundle<W>>
+    where
+        W: Clone + HasModulus,
+        F: Fancy<Item = W>,
+    {
+        let ops = NeuralNetOps {
+            enc: Box::new(move |b: &mut F, x| {
+                let twos = util::i64_to_twos_complement(x, nbits);
+                b.bin_constant_bundle(twos, nbits).unwrap()
+            }),
+            sec: Box::new(move |_b: &mut F, _opt_x| panic!("no sec")),
+            add: Box::new(move |b: &mut F, x: &BinaryBundle<W>, y: &BinaryBundle<W>| {
+                b.bin_addition_no_carry(x, y).unwrap()
+            }),
+            cmul: Box::new(move |b: &mut F, x: &BinaryBundle<W>, y| {
+                b.bin_cmul(x, util::i64_to_twos_complement(y, nbits), nbits)
+                    .unwrap()
+            }),
+            proj: Box::new(move |_b: &mut F, _inp, _opt_w| panic!("no sec")),
+            max: Box::new(move |b: &mut F, xs: &[BinaryBundle<W>]| b.bin_max(xs).unwrap()),
+            act: Box::new(move |b: &mut F, a: &str, x: &BinaryBundle<W>| match a {
+                "sign" => {
+                    let sign = x.wires().last().unwrap();
+                    let neg1 = (1 << nbits) - 1;
+                    b.bin_multiplex_constant_bits(sign, 1, neg1, nbits).unwrap()
+                }
+                "relu" => {
+                    let sign = x.wires().last().unwrap();
+                    let zeros = b.bin_constant_bundle(0u128, nbits).unwrap();
+                    BinaryBundle::from(b.multiplex(&sign, &x, &zeros).unwrap())
+                }
+                "id" => x.clone(),
+                act => panic!("unsupported activation {}", act),
+            }),
+
+            zero: b.bin_constant_bundle(0u128, nbits).unwrap(),
+        };
+        self.eval(b, &input, &ops, false)
     }
 
     /// Polymorphic evaluation so we can run on `i64` directly as well as use this

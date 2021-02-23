@@ -4,6 +4,7 @@ pub mod garbling_benches;
 pub mod layer;
 pub mod neural_net;
 pub mod util;
+pub mod circuit;
 
 use clap::{App, Arg, ArgMatches, Error, ErrorKind, SubCommand};
 use colored::*;
@@ -138,12 +139,11 @@ pub fn main() {
                 .help("number of iterations to run")
                 .default_value("1")
                 .validator(is_positive))
-            .arg(Arg::with_name("nthreads")
-                .short("t")
-                .help("number of threads used by fancy objects")
-                .default_value("8")
-                .validator(is_positive))
             .display_order(4))
+
+        .subcommand(SubCommand::with_name("circuit")
+            .about("Print the circuit for the neural network")
+            .display_order(5))
 
         .get_matches();
 
@@ -288,16 +288,17 @@ pub fn main() {
         }
     } else if let Some(matches) = matches.subcommand_matches("bench") {
         let niters = get_arg_usize(&matches, "niters");
-        let nthreads = get_arg_usize(&matches, "nthreads");
         garbling_benches::bench(
             &nn,
             &bitwidth,
             niters,
             is_secret,
             matches.is_present("boolean"),
-            nthreads,
             accuracy,
         );
+    } else if let Some(_matches) = matches.subcommand_matches("circuit") {
+        circuit::print_boolean_circuit(&nn, &bitwidth);
+
     } else {
         Error::exit(&Error::with_description(
             "no command given! try \"help\"",

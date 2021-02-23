@@ -20,7 +20,6 @@ pub fn bench(
     niters: usize,
     secret_weights: bool,
     binary: bool,
-    nthreads: usize,
     accuracy: &Accuracy,
 ) {
     println!("{}", "* running garble/eval benchmark".green());
@@ -48,7 +47,6 @@ pub fn bench(
             &inps,
             bitwidth,
             Some(&mut pb),
-            16,
             secret_weights,
             true,
         );
@@ -62,7 +60,6 @@ pub fn bench(
             &inps,
             &moduli,
             Some(&mut pb),
-            16,
             secret_weights,
             true,
             accuracy,
@@ -105,7 +102,6 @@ pub fn bench(
                         &inps,
                         &bitwidth,
                         None,
-                        nthreads,
                         secret_weights,
                         true,
                     );
@@ -116,7 +112,6 @@ pub fn bench(
                         &inps,
                         &moduli,
                         None,
-                        nthreads,
                         secret_weights,
                         true,
                         &accuracy,
@@ -135,7 +130,6 @@ pub fn bench(
                     &inps,
                     &bitwidth,
                     Some(&mut p2),
-                    nthreads,
                     secret_weights,
                     false,
                 );
@@ -148,7 +142,6 @@ pub fn bench(
                     &inps,
                     &moduli,
                     Some(&mut p2),
-                    nthreads,
                     secret_weights,
                     false,
                     &accuracy,

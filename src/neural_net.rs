@@ -41,7 +41,6 @@ impl NeuralNet {
         circuit_inputs: &[CrtBundle<W>],
         moduli: &[u128], // CRT moduli for each layer's operations
         mut pb: Option<&mut ProgressBar<T>>,
-        max_threads: usize,
         secret_weights: bool,
         secret_weights_owned: bool,
         accuracy: &Accuracy,
@@ -79,7 +78,6 @@ impl NeuralNet {
                 inp_mod,
                 out_mod,
                 &acc,
-                max_threads,
                 secret_weights,
                 secret_weights_owned,
                 accuracy,
@@ -96,7 +94,6 @@ impl NeuralNet {
         circuit_inputs: &[BinaryBundle<W>],
         bitwidth: &[usize],
         mut pb: Option<&mut ProgressBar<T>>,
-        max_threads: usize,
         secret_weights: bool,
         secret_weights_owned: bool,
     ) -> Vec<BinaryBundle<W>>
@@ -116,11 +113,39 @@ impl NeuralNet {
             acc = layer.as_binary(
                 b,
                 bitwidth[i],
-                bitwidth[i + 1],
                 &acc,
-                max_threads,
                 secret_weights,
                 secret_weights_owned,
+            );
+        }
+        acc.iter().cloned().collect_vec()
+    }
+
+    /// Evaluate the neural network as boolean fancy computation.
+    pub fn eval_boolean_no_secret_weights<W, F, T>(
+        &self,
+        b: &mut F,
+        circuit_inputs: &[BinaryBundle<W>],
+        bitwidth: &[usize],
+        mut pb: Option<&mut ProgressBar<T>>,
+    ) -> Vec<BinaryBundle<W>>
+    where
+        W: Clone + HasModulus,
+        F: Fancy<Item = W>, // + FancyInput<Item = W>,
+        T: std::io::Write,
+    {
+        let mut acc =
+            Array3::from_shape_vec(self.layers[0].input_dims(), circuit_inputs.to_vec()).unwrap();
+        pb.as_mut().map(|pb| pb.set(0));
+        for (i, layer) in self.layers.iter().enumerate() {
+            pb.as_mut().map(|pb| {
+                pb.message(&format!("Layer [{}] ", layer.name()));
+                pb.inc();
+            });
+            acc = layer.as_binary_no_secret_weights(
+                b,
+                bitwidth[i],
+                &acc,
             );
         }
         acc.iter().cloned().collect_vec()
