@@ -6,10 +6,7 @@
 //! minimizing NN evaluation bugs.
 
 use crate::ops::{Accuracy, NeuralNetOps};
-use fancy_garbling::{
-    Bundle, BinaryBundle, CrtBundle, Fancy,
-    FancyInput, HasModulus,
-};
+use fancy_garbling::{BinaryBundle, Bundle, CrtBundle, Fancy, FancyInput, HasModulus};
 use itertools::{iproduct, Itertools};
 use ndarray::Array3;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -305,7 +302,7 @@ impl Layer {
     ) -> Array3<BinaryBundle<W>>
     where
         W: Clone + HasModulus,
-        F: Fancy<Item = W>
+        F: Fancy<Item = W>,
     {
         let ops = NeuralNetOps::binary_no_secret_weights(nbits);
         self.eval(b, &input, &ops, false)

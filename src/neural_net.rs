@@ -1,7 +1,7 @@
 use crate::layer::Layer;
 use crate::ops::Accuracy;
 use colored::*;
-use fancy_garbling::{Bundle, BinaryBundle, CrtBundle, Fancy, FancyInput, HasModulus};
+use fancy_garbling::{BinaryBundle, Bundle, CrtBundle, Fancy, FancyInput, HasModulus};
 use itertools::Itertools;
 use ndarray::Array3;
 use pbr::ProgressBar;
@@ -111,13 +111,7 @@ impl NeuralNet {
                 pb.message(&format!("Layer [{}] ", layer.name()));
                 pb.inc();
             });
-            acc = layer.as_binary(
-                b,
-                bitwidth[i],
-                &acc,
-                secret_weights,
-                secret_weights_owned,
-            );
+            acc = layer.as_binary(b, bitwidth[i], &acc, secret_weights, secret_weights_owned);
         }
         acc.iter().cloned().collect_vec()
     }
@@ -143,11 +137,7 @@ impl NeuralNet {
                 pb.message(&format!("Layer [{}] ", layer.name()));
                 pb.inc();
             });
-            acc = layer.as_binary_no_secret_weights(
-                b,
-                bitwidth,
-                &acc,
-            );
+            acc = layer.as_binary_no_secret_weights(b, bitwidth, &acc);
         }
         acc.iter().cloned().collect_vec()
     }
@@ -166,22 +156,15 @@ impl NeuralNet {
         F: Fancy<Item = W>, // + FancyInput<Item = W>,
         T: std::io::Write,
     {
-        let mut acc = Array3::from_shape_vec(
-            self.layers[0].input_dims(),
-            circuit_inputs.to_vec()
-        ).unwrap();
+        let mut acc =
+            Array3::from_shape_vec(self.layers[0].input_dims(), circuit_inputs.to_vec()).unwrap();
         pb.as_mut().map(|pb| pb.set(0));
         for layer in self.layers.iter() {
             pb.as_mut().map(|pb| {
                 pb.message(&format!("Layer [{}] ", layer.name()));
                 pb.inc();
             });
-            acc = layer.as_finite_field(
-                b,
-                field_size,
-                n_field_elems,
-                &acc,
-            );
+            acc = layer.as_finite_field(b, field_size, n_field_elems, &acc);
         }
         acc.iter().cloned().collect_vec()
     }

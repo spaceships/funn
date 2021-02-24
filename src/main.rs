@@ -1,12 +1,12 @@
+pub mod circuit;
 pub mod direct_tests;
 pub mod dummy_tests;
 pub mod garbling_benches;
+pub mod info;
 pub mod layer;
 pub mod neural_net;
-pub mod util;
-pub mod circuit;
-pub mod info;
 pub mod ops;
+pub mod util;
 
 use clap::{App, Arg, ArgMatches, Error, ErrorKind, SubCommand};
 use colored::*;
@@ -18,8 +18,8 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 
-use crate::ops::Accuracy;
 use crate::neural_net::NeuralNet;
+use crate::ops::Accuracy;
 
 static VERSION: &str = "0.1.0";
 
@@ -341,9 +341,7 @@ fn read_tests(filename: &str, num: Option<usize>) -> Vec<Array3<i64>> {
             iter.collect()
         }
     } else if filename.ends_with(".json") {
-        let file = std::io::BufReader::new(
-            File::open(filename).expect("couldn't open file!")
-        );
+        let file = std::io::BufReader::new(File::open(filename).expect("couldn't open file!"));
         let obj: Value = serde_json::from_reader(file).expect("couldn't parse json!");
         let iter = obj
             .as_array()
@@ -372,9 +370,7 @@ fn read_labels(filename: &str) -> Vec<Vec<i64>> {
             })
             .collect()
     } else if filename.ends_with(".json") {
-        let file = std::io::BufReader::new(
-            File::open(filename).expect("couldn't open file!")
-        );
+        let file = std::io::BufReader::new(File::open(filename).expect("couldn't open file!"));
         let obj: Value = serde_json::from_reader(file).expect("couldn't parse json!");
 
         obj.as_array()

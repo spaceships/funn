@@ -5,8 +5,8 @@ use fancy_garbling::FancyInput;
 use itertools::Itertools;
 use ndarray::Array3;
 
-use crate::ops::Accuracy;
 use crate::neural_net::NeuralNet;
+use crate::ops::Accuracy;
 use crate::util;
 
 /// test the artihmetic encoding of the neural network using Dummy

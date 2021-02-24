@@ -1,5 +1,5 @@
-use crate::ops::Accuracy;
 use crate::neural_net::NeuralNet;
+use crate::ops::Accuracy;
 // use colored::*;
 // use fancy_garbling::dummy::Dummy;
 // use fancy_garbling::informer::Informer;

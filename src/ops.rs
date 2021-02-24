@@ -1,9 +1,9 @@
 use crate::util;
-use fancy_garbling::{
-    Bundle, BinaryBundle, BinaryGadgets, BundleGadgets, CrtBundle, CrtGadgets, Fancy,
-    FancyInput, HasModulus,
-};
 use fancy_garbling::util as numbers;
+use fancy_garbling::{
+    BinaryBundle, BinaryGadgets, Bundle, BundleGadgets, CrtBundle, CrtGadgets, Fancy, FancyInput,
+    HasModulus,
+};
 use itertools::Itertools;
 
 /// The accuracy of each kind of activation function.
@@ -61,14 +61,13 @@ impl NeuralNetOps<usize, i64> {
     }
 }
 
-impl <F: Fancy<Item=W> + FancyInput<Item=W>, W: Clone + HasModulus> NeuralNetOps<F,W> {
+impl<F: Fancy<Item = W> + FancyInput<Item = W>, W: Clone + HasModulus> NeuralNetOps<F, W> {
     pub fn arithmetic(
         q: u128, // input modulus
         output_mod: u128,
         secret_weights_owned: bool,
         accuracy: &Accuracy,
-    ) -> NeuralNetOps<F, CrtBundle<W>>
-    {
+    ) -> NeuralNetOps<F, CrtBundle<W>> {
         let relu_accuracy = accuracy.relu.clone();
         let sign_accuracy = accuracy.sign.clone();
         let max_accuracy = accuracy.max.clone();
@@ -141,11 +140,7 @@ impl <F: Fancy<Item=W> + FancyInput<Item=W>, W: Clone + HasModulus> NeuralNetOps
         }
     }
 
-    pub fn binary(
-        nbits: usize,
-        secret_weights_owned: bool,
-    ) -> NeuralNetOps<F, BinaryBundle<W>>
-    {
+    pub fn binary(nbits: usize, secret_weights_owned: bool) -> NeuralNetOps<F, BinaryBundle<W>> {
         NeuralNetOps {
             enc: Box::new(move |b: &mut F, x| {
                 let twos = util::i64_to_twos_complement(x, nbits);
@@ -211,7 +206,7 @@ impl <F: Fancy<Item=W> + FancyInput<Item=W>, W: Clone + HasModulus> NeuralNetOps
     }
 }
 
-impl <F: Fancy<Item=W>, W: Clone + HasModulus> NeuralNetOps<F,W> {
+impl<F: Fancy<Item = W>, W: Clone + HasModulus> NeuralNetOps<F, W> {
     pub fn binary_no_secret_weights(nbits: usize) -> NeuralNetOps<F, BinaryBundle<W>> {
         NeuralNetOps {
             enc: Box::new(move |b: &mut F, x| {
@@ -247,10 +242,7 @@ impl <F: Fancy<Item=W>, W: Clone + HasModulus> NeuralNetOps<F,W> {
     }
 
     #[allow(unused_variables)]
-    pub fn finite_field(
-        field_size: usize,
-        n_field_elems: usize,
-    ) -> NeuralNetOps<F,Bundle<W>> {
+    pub fn finite_field(field_size: usize, n_field_elems: usize) -> NeuralNetOps<F, Bundle<W>> {
         NeuralNetOps {
             sec: Box::new(move |_b: &mut F, _opt_x| panic!("no sec")),
             proj: Box::new(move |_b: &mut F, _inp, _opt_w| panic!("no sec")),
@@ -258,7 +250,8 @@ impl <F: Fancy<Item=W>, W: Clone + HasModulus> NeuralNetOps<F,W> {
             enc: Box::new(move |b: &mut F, x| {
                 let twos = util::i64_to_twos_complement(x, field_size * n_field_elems);
                 let digits = util::u128_to_field(twos, field_size, n_field_elems);
-                b.constant_bundle(&digits, &vec![1 << field_size; n_field_elems]).unwrap()
+                b.constant_bundle(&digits, &vec![1 << field_size; n_field_elems])
+                    .unwrap()
             }),
 
             add: Box::new(move |b: &mut F, x: &Bundle<W>, y: &Bundle<W>| {
@@ -268,7 +261,7 @@ impl <F: Fancy<Item=W>, W: Clone + HasModulus> NeuralNetOps<F,W> {
             cmul: Box::new(move |b: &mut F, x: &Bundle<W>, y| {
                 unimplemented!()
                 // b.bin_cmul(x, util::i64_to_twos_complement(y, nbits), nbits)
-                    // .unwrap()
+                // .unwrap()
             }),
 
             max: Box::new(move |b: &mut F, xs: &[Bundle<W>]| {
@@ -296,9 +289,10 @@ impl <F: Fancy<Item=W>, W: Clone + HasModulus> NeuralNetOps<F,W> {
             zero: Box::new(move |b: &mut F| {
                 b.constant_bundle(
                     &vec![0; n_field_elems],
-                    &vec![1 << field_size; n_field_elems]
-                ).unwrap()
-            })
+                    &vec![1 << field_size; n_field_elems],
+                )
+                .unwrap()
+            }),
         }
     }
 }
