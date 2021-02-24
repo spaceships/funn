@@ -1,6 +1,7 @@
-use crate::layer::{Accuracy, Layer};
+use crate::layer::Layer;
+use crate::ops::Accuracy;
 use colored::*;
-use fancy_garbling::{BinaryBundle, CrtBundle, Fancy, FancyInput, HasModulus};
+use fancy_garbling::{Bundle, BinaryBundle, CrtBundle, Fancy, FancyInput, HasModulus};
 use itertools::Itertools;
 use ndarray::Array3;
 use pbr::ProgressBar;
@@ -126,7 +127,7 @@ impl NeuralNet {
         &self,
         b: &mut F,
         circuit_inputs: &[BinaryBundle<W>],
-        bitwidth: &[usize],
+        bitwidth: usize,
         mut pb: Option<&mut ProgressBar<T>>,
     ) -> Vec<BinaryBundle<W>>
     where
@@ -137,14 +138,48 @@ impl NeuralNet {
         let mut acc =
             Array3::from_shape_vec(self.layers[0].input_dims(), circuit_inputs.to_vec()).unwrap();
         pb.as_mut().map(|pb| pb.set(0));
-        for (i, layer) in self.layers.iter().enumerate() {
+        for layer in self.layers.iter() {
             pb.as_mut().map(|pb| {
                 pb.message(&format!("Layer [{}] ", layer.name()));
                 pb.inc();
             });
             acc = layer.as_binary_no_secret_weights(
                 b,
-                bitwidth[i],
+                bitwidth,
+                &acc,
+            );
+        }
+        acc.iter().cloned().collect_vec()
+    }
+
+    /// Evaluate the neural network as finite field fancy computation.
+    pub fn eval_finite_field<W, F, T>(
+        &self,
+        b: &mut F,
+        circuit_inputs: &[Bundle<W>],
+        field_size: usize,
+        n_field_elems: usize,
+        mut pb: Option<&mut ProgressBar<T>>,
+    ) -> Vec<Bundle<W>>
+    where
+        W: Clone + HasModulus,
+        F: Fancy<Item = W>, // + FancyInput<Item = W>,
+        T: std::io::Write,
+    {
+        let mut acc = Array3::from_shape_vec(
+            self.layers[0].input_dims(),
+            circuit_inputs.to_vec()
+        ).unwrap();
+        pb.as_mut().map(|pb| pb.set(0));
+        for layer in self.layers.iter() {
+            pb.as_mut().map(|pb| {
+                pb.message(&format!("Layer [{}] ", layer.name()));
+                pb.inc();
+            });
+            acc = layer.as_finite_field(
+                b,
+                field_size,
+                n_field_elems,
                 &acc,
             );
         }

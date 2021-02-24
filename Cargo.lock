@@ -40,7 +40,6 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 [[package]]
 name = "base_conversion"
 version = "0.4.0"
-source = "git+https://github.com/GaloisInc/swanky.git?branch=dev#f16a8f96f3f32686724fd094ab963f72f6960419"
 dependencies = [
  "cc",
 ]
@@ -370,14 +369,15 @@ checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
 [[package]]
 name = "fancy-garbling"
 version = "0.4.0"
-source = "git+https://github.com/GaloisInc/swanky.git?branch=dev#f16a8f96f3f32686724fd094ab963f72f6960419"
 dependencies = [
  "base_conversion",
  "itertools 0.8.2",
- "ocelot",
+ "ocelot 0.4.0",
  "rand",
  "regex",
- "scuttlebutt",
+ "scuttlebutt 0.4.0",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -391,10 +391,10 @@ dependencies = [
  "fancy-garbling",
  "itertools 0.8.2",
  "ndarray",
- "ocelot",
+ "ocelot 0.4.0 (git+https://github.com/GaloisInc/swanky.git?branch=dev)",
  "pbr",
  "rand",
- "scuttlebutt",
+ "scuttlebutt 0.4.0 (git+https://github.com/GaloisInc/swanky.git?branch=dev)",
  "serde",
  "serde_json",
  "time",
@@ -629,7 +629,19 @@ dependencies = [
  "itertools 0.8.2",
  "libc",
  "rand",
- "scuttlebutt",
+ "scuttlebutt 0.4.0 (git+https://github.com/GaloisInc/swanky.git?branch=dev)",
+]
+
+[[package]]
+name = "ocelot"
+version = "0.4.0"
+dependencies = [
+ "cc",
+ "curve25519-dalek",
+ "itertools 0.8.2",
+ "libc",
+ "rand",
+ "scuttlebutt 0.4.0",
 ]
 
 [[package]]
@@ -887,6 +899,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "scuttlebutt"
+version = "0.4.0"
+dependencies = [
+ "curve25519-dalek",
+ "rand",
+ "rand_core",
+ "serde",
+ "sha2",
+]
+
+[[package]]
 name = "semver"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -906,6 +929,9 @@ name = "serde"
 version = "1.0.123"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92d5161132722baa40d802cc70b15262b98258453e85e5d1d365c757c73869ae"
+dependencies = [
+ "serde_derive",
+]
 
 [[package]]
 name = "serde_cbor"

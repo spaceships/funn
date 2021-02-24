@@ -5,6 +5,8 @@ pub mod layer;
 pub mod neural_net;
 pub mod util;
 pub mod circuit;
+pub mod info;
+pub mod ops;
 
 use clap::{App, Arg, ArgMatches, Error, ErrorKind, SubCommand};
 use colored::*;
@@ -16,7 +18,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 
-use crate::layer::Accuracy;
+use crate::ops::Accuracy;
 use crate::neural_net::NeuralNet;
 
 static VERSION: &str = "0.1.0";
@@ -72,6 +74,14 @@ pub fn main() {
             .short("b")
             .long("boolean")
             .help("runs in boolean mode")
+            .global(true))
+
+        .arg(Arg::with_name("field-size")
+            .short("f")
+            .long("field-size")
+            .help("n in field size 2^n")
+            .takes_value(true)
+            .validator(is_positive)
             .global(true))
 
         .arg(Arg::with_name("secret")
@@ -145,12 +155,17 @@ pub fn main() {
             .about("Print the circuit for the neural network")
             .display_order(5))
 
+        .subcommand(SubCommand::with_name("info")
+            .about("Print the boolean circuit information")
+            .display_order(5))
+
         .get_matches();
 
     ////////////////////////////////////////////////////////////////////////////////
     // read tests, labels, and neural net from DIR
     let dir = Path::new(matches.value_of("DIR").unwrap());
     let ntests = matches.value_of("ntests").map(|s| s.parse().unwrap());
+    let field_size = matches.value_of("field-size").map(|s| s.parse().unwrap());
 
     let model_path = dir.join(Path::new("model.json"));
     if !model_path.is_file() {
@@ -297,8 +312,9 @@ pub fn main() {
             accuracy,
         );
     } else if let Some(_matches) = matches.subcommand_matches("circuit") {
-        circuit::print_boolean_circuit(&nn, &bitwidth);
-
+        circuit::print_boolean_circuit(&nn, bitwidth[0], field_size);
+    } else if let Some(_matches) = matches.subcommand_matches("info") {
+        info::bool_info(&nn, bitwidth[0], field_size);
     } else {
         Error::exit(&Error::with_description(
             "no command given! try \"help\"",

@@ -64,6 +64,17 @@ pub fn i64_to_twos_complement(x: i64, nbits: usize) -> u128 {
     }
 }
 
+pub fn u128_to_field(mut x: u128, field_size: usize, n: usize) -> Vec<u16> {
+    let mut ds = Vec::with_capacity(n);
+    let mask = ((1 << field_size) - 1) as u128;
+    for _ in 0..n {
+        let d = (x & mask) as u16;
+        x >>= field_size;
+        ds.push(d);
+    }
+    ds
+}
+
 pub fn i64_from_twos_complement(x: u128, nbits: usize) -> i64 {
     if x >= 1 << (nbits - 1) {
         -(twos_complement_negate(x, nbits) as i64)
@@ -143,6 +154,10 @@ pub fn encode_binary(input: impl Iterator<Item = i64>, nbits: usize) -> Vec<u16>
 /// Decode the output array from bits.
 pub fn decode_binary(output: &[u16], nbits: usize) -> Vec<i64> {
     output.chunks(nbits).map(|xs| i64_from_bits(xs)).collect()
+}
+
+pub fn round_up_division(x: usize, y: usize) -> usize {
+    (x + (y - 1)) / y
 }
 
 #[cfg(test)]

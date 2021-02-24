@@ -5,7 +5,7 @@ use fancy_garbling::FancyInput;
 use itertools::Itertools;
 use ndarray::Array3;
 
-use crate::layer::Accuracy;
+use crate::ops::Accuracy;
 use crate::neural_net::NeuralNet;
 use crate::util;
 

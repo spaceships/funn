@@ -5,24 +5,15 @@
 //! that we only have to say how to evaluate each kind of layer once (in `Layer::eval`),
 //! minimizing NN evaluation bugs.
 
-use crate::util;
-use fancy_garbling::util as numbers;
+use crate::ops::{Accuracy, NeuralNetOps};
 use fancy_garbling::{
-    BinaryBundle, BinaryGadgets, BundleGadgets, CrtBundle, CrtGadgets, Fancy, FancyInput,
-    HasModulus,
+    Bundle, BinaryBundle, CrtBundle, Fancy,
+    FancyInput, HasModulus,
 };
 use itertools::{iproduct, Itertools};
 use ndarray::Array3;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-
-/// The accuracy of each kind of activation function.
-#[derive(Clone, Debug)]
-pub struct Accuracy {
-    pub(crate) relu: String,
-    pub(crate) sign: String,
-    pub(crate) max: String,
-}
 
 /// Each layer optionally contains weights and biases. If they are not present, the
 /// weights and biases will be treated as secret (garbler inputs).
@@ -61,27 +52,6 @@ pub enum Layer {
         activation: String,
         input_shape: (usize, usize, usize),
     },
-}
-
-/// NeuralNetOps encodes the particular way that we evaluate a neural net - whether it is
-/// directly over `i64` or as an arithmetic circuit, or whatever. The first argument to
-/// these functions could be a `Fancy` object.
-struct NeuralNetOps<B, T> {
-    // Encode a constant.
-    enc: Box<dyn Fn(&mut B, i64) -> T>,
-    // Encode a secret.
-    sec: Box<dyn Fn(&mut B, Option<i64>) -> T>,
-    // Add two values.
-    add: Box<dyn Fn(&mut B, &T, &T) -> T>,
-    // Scalar multiplication.
-    cmul: Box<dyn Fn(&mut B, &T, i64) -> T>,
-    // Apply secret weight to an input.
-    proj: Box<dyn Fn(&mut B, &T, Option<i64>) -> T>,
-    // Maximum of a slice of encodings.
-    max: Box<dyn Fn(&mut B, &[T]) -> T>,
-    // Activation function chosen based on string name.
-    act: Box<dyn Fn(&mut B, &str, &T) -> T>,
-    zero: T,
 }
 
 impl Layer {
@@ -277,7 +247,7 @@ impl Layer {
             proj: Box::new(proj),
             max: Box::new(max),
             act: Box::new(act),
-            zero: 0,
+            zero: Box::new(|_| 0),
         };
 
         let layer_output = self.eval(&mut 0, input, &ops, false);
@@ -287,28 +257,7 @@ impl Layer {
 
     /// Evaluate this layer in plaintext.
     pub fn as_plaintext(&self, input: &Array3<i64>, _: usize) -> Array3<i64> {
-        let ops = NeuralNetOps {
-            enc: Box::new(|_, x| x),
-            sec: Box::new(|_, _| panic!("secret not supported for plaintext eval")),
-            add: Box::new(|_, x, y| x + y),
-            cmul: Box::new(|_, x, y| x * y),
-            proj: Box::new(|_, _, _| panic!("secret not supported for plaintext eval")),
-            max: Box::new(|_, xs| *xs.iter().max().unwrap()),
-            act: Box::new(|_, a, x| match a {
-                "sign" => {
-                    if *x >= 0 {
-                        1
-                    } else {
-                        -1
-                    }
-                }
-                "relu" => std::cmp::max(*x, 0),
-                "id" => *x,
-                act => panic!("unsupported activation {}", act),
-            }),
-            zero: 0,
-        };
-
+        let ops = NeuralNetOps::plaintext();
         self.eval(&mut 0, input, &ops, false)
     }
 
@@ -327,77 +276,7 @@ impl Layer {
         W: Clone + HasModulus,
         F: Fancy<Item = W> + FancyInput<Item = W>,
     {
-        let relu_accuracy = accuracy.relu.clone();
-        let sign_accuracy = accuracy.sign.clone();
-        let max_accuracy = accuracy.max.clone();
-        let output_ps = numbers::factor(output_mod);
-        let ops = NeuralNetOps {
-            enc: Box::new(move |b: &mut F, x| {
-                b.crt_constant_bundle(util::to_mod_q(x, q), q).unwrap()
-            }),
-
-            sec: if secret_weights_owned {
-                Box::new(move |b: &mut F, opt_x| {
-                    b.crt_encode(util::to_mod_q(opt_x.unwrap(), q), q)
-                        .ok()
-                        .expect("error encoding secret CRT value")
-                })
-            } else {
-                Box::new(move |b: &mut F, _| {
-                    b.crt_receive(q)
-                        .ok()
-                        .expect("error receiving secret CRT value")
-                })
-            },
-
-            add: Box::new(move |b: &mut F, x: &CrtBundle<W>, y: &CrtBundle<W>| {
-                b.crt_add(x, y).unwrap()
-            }),
-
-            cmul: Box::new(move |b: &mut F, x: &CrtBundle<W>, y| {
-                b.crt_cmul(x, util::to_mod_q(y, q)).unwrap()
-            }),
-
-            proj: Box::new(move |b: &mut F, inp, opt_w| {
-                if let Some(w) = opt_w {
-                    // convert the weight to crt mod q
-                    let ws = util::to_mod_q_crt(w, q);
-                    CrtBundle::new(
-                        inp.wires()
-                            .iter()
-                            .zip(ws.iter())
-                            .map(|(wire, weight)| {
-                                let q = wire.modulus();
-                                let tab = (0..q).map(|x| x * weight % q).collect_vec();
-                                // project each input x to x*w
-                                b.proj(wire, q, Some(tab)).unwrap()
-                            })
-                            .collect_vec(),
-                    )
-                } else {
-                    CrtBundle::new(
-                        inp.wires()
-                            .iter()
-                            .map(|wire| {
-                                // project the input, without knowing the weight
-                                b.proj(wire, wire.modulus(), None).unwrap()
-                            })
-                            .collect_vec(),
-                    )
-                }
-            }),
-            max: Box::new(move |b: &mut F, xs: &[CrtBundle<W>]| {
-                b.crt_max(xs, &max_accuracy).unwrap()
-            }),
-            act: Box::new(move |b: &mut F, a: &str, x: &CrtBundle<W>| match a {
-                "sign" => b.crt_sgn(x, &sign_accuracy, Some(&output_ps)).unwrap(),
-                "relu" => b.crt_relu(x, &relu_accuracy, Some(&output_ps)).unwrap(),
-                "id" => x.clone(),
-                act => panic!("unsupported activation {}", act),
-            }),
-            zero: b.crt_constant_bundle(0, q).unwrap(),
-        };
-
+        let ops = NeuralNetOps::arithmetic(q, output_mod, secret_weights_owned, accuracy);
         self.eval(b, &input, &ops, secret_weights)
     }
 
@@ -414,68 +293,7 @@ impl Layer {
         W: Clone + HasModulus,
         F: Fancy<Item = W> + FancyInput<Item = W>,
     {
-        let ops = NeuralNetOps {
-            enc: Box::new(move |b: &mut F, x| {
-                let twos = util::i64_to_twos_complement(x, nbits);
-                b.bin_constant_bundle(twos, nbits).unwrap()
-            }),
-
-            sec: Box::new(move |b: &mut F, opt_x| {
-                if secret_weights_owned {
-                    let xbits = util::i64_to_twos_complement(opt_x.unwrap(), nbits);
-                    b.bin_encode(xbits, nbits)
-                        .ok()
-                        .expect("error encoding binary secret value")
-                } else {
-                    b.bin_receive(nbits)
-                        .ok()
-                        .expect("error receiving binary secret value")
-                }
-            }),
-
-            add: Box::new(move |b: &mut F, x: &BinaryBundle<W>, y: &BinaryBundle<W>| {
-                b.bin_addition_no_carry(x, y).unwrap()
-            }),
-
-            cmul: Box::new(move |b: &mut F, x: &BinaryBundle<W>, y| {
-                b.bin_cmul(x, util::i64_to_twos_complement(y, nbits), nbits)
-                    .unwrap()
-            }),
-
-            proj: Box::new(move |b: &mut F, inp, opt_w| {
-                // ignore the input weight - it needs to be a garbler input
-                let weight_bits = opt_w.map(|w| util::i64_to_twos_complement(w, nbits));
-                let w = if secret_weights_owned {
-                    b.bin_encode(weight_bits.unwrap(), nbits)
-                        .ok()
-                        .expect("could not encode binary secret")
-                } else {
-                    b.bin_receive(nbits)
-                        .ok()
-                        .expect("could not receive binary secret")
-                };
-                b.bin_multiplication_lower_half(inp, &w).unwrap()
-            }),
-
-            max: Box::new(move |b: &mut F, xs: &[BinaryBundle<W>]| b.bin_max(xs).unwrap()),
-
-            act: Box::new(move |b: &mut F, a: &str, x: &BinaryBundle<W>| match a {
-                "sign" => {
-                    let sign = x.wires().last().unwrap();
-                    let neg1 = (1 << nbits) - 1;
-                    b.bin_multiplex_constant_bits(sign, 1, neg1, nbits).unwrap()
-                }
-                "relu" => {
-                    let sign = x.wires().last().unwrap();
-                    let zeros = b.bin_constant_bundle(0u128, nbits).unwrap();
-                    BinaryBundle::from(b.multiplex(&sign, &x, &zeros).unwrap())
-                }
-                "id" => x.clone(),
-                act => panic!("unsupported activation {}", act),
-            }),
-
-            zero: b.bin_constant_bundle(0u128, nbits).unwrap(),
-        };
+        let ops = NeuralNetOps::binary(nbits, secret_weights_owned);
         self.eval(b, &input, &ops, secret_weights)
     }
 
@@ -487,40 +305,24 @@ impl Layer {
     ) -> Array3<BinaryBundle<W>>
     where
         W: Clone + HasModulus,
+        F: Fancy<Item = W>
+    {
+        let ops = NeuralNetOps::binary_no_secret_weights(nbits);
+        self.eval(b, &input, &ops, false)
+    }
+
+    pub fn as_finite_field<W, F>(
+        &self,
+        b: &mut F,
+        field_size: usize,
+        n_field_elems: usize,
+        input: &Array3<Bundle<W>>,
+    ) -> Array3<Bundle<W>>
+    where
+        W: Clone + HasModulus,
         F: Fancy<Item = W>,
     {
-        let ops = NeuralNetOps {
-            enc: Box::new(move |b: &mut F, x| {
-                let twos = util::i64_to_twos_complement(x, nbits);
-                b.bin_constant_bundle(twos, nbits).unwrap()
-            }),
-            sec: Box::new(move |_b: &mut F, _opt_x| panic!("no sec")),
-            add: Box::new(move |b: &mut F, x: &BinaryBundle<W>, y: &BinaryBundle<W>| {
-                b.bin_addition_no_carry(x, y).unwrap()
-            }),
-            cmul: Box::new(move |b: &mut F, x: &BinaryBundle<W>, y| {
-                b.bin_cmul(x, util::i64_to_twos_complement(y, nbits), nbits)
-                    .unwrap()
-            }),
-            proj: Box::new(move |_b: &mut F, _inp, _opt_w| panic!("no sec")),
-            max: Box::new(move |b: &mut F, xs: &[BinaryBundle<W>]| b.bin_max(xs).unwrap()),
-            act: Box::new(move |b: &mut F, a: &str, x: &BinaryBundle<W>| match a {
-                "sign" => {
-                    let sign = x.wires().last().unwrap();
-                    let neg1 = (1 << nbits) - 1;
-                    b.bin_multiplex_constant_bits(sign, 1, neg1, nbits).unwrap()
-                }
-                "relu" => {
-                    let sign = x.wires().last().unwrap();
-                    let zeros = b.bin_constant_bundle(0u128, nbits).unwrap();
-                    BinaryBundle::from(b.multiplex(&sign, &x, &zeros).unwrap())
-                }
-                "id" => x.clone(),
-                act => panic!("unsupported activation {}", act),
-            }),
-
-            zero: b.bin_constant_bundle(0u128, nbits).unwrap(),
-        };
+        let ops = NeuralNetOps::finite_field(field_size, n_field_elems);
         self.eval(b, &input, &ops, false)
     }
 
@@ -602,6 +404,8 @@ impl Layer {
                 let shift_y = ((zero_rows as f32) / 2.0).floor() as usize;
                 let shift_x = ((zero_cols as f32) / 2.0).floor() as usize;
 
+                let zero = (ops.zero)(b);
+
                 for filterno in 0..filters.len() {
                     let mut h = 0;
                     while stride_y * h <= height - kheight + zero_rows {
@@ -628,7 +432,7 @@ impl Layer {
                                                     || idx_x >= width + shift_x));
 
                                         let input_val = if pad_condition {
-                                            &(ops.zero)
+                                            &zero
                                         } else {
                                             &input[(idx_y - shift_y, idx_x - shift_x, k)]
                                         };
@@ -677,6 +481,8 @@ impl Layer {
                 let shift_y = ((zero_rows as f32) / 2.0).floor() as usize;
                 let shift_x = ((zero_cols as f32) / 2.0).floor() as usize;
 
+                let zero = (ops.zero)(b);
+
                 // create windows
                 let mut windows = Vec::new();
                 let mut y = 0;
@@ -696,7 +502,7 @@ impl Layer {
                                                 || idx_x >= width + shift_x));
 
                                     let val = if pad_condition {
-                                        (ops.zero).clone()
+                                        zero.clone()
                                     } else {
                                         input[(idx_y - shift_y, idx_x - shift_x, z)].clone()
                                     };

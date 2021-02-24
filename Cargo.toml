@@ -10,7 +10,8 @@ nightly = ["fancy-garbling/nightly", "scuttlebutt/nightly"]
 
 [dependencies]
 ocelot = {git = "https://github.com/GaloisInc/swanky.git", branch = "dev"}
-fancy-garbling = {git = "https://github.com/GaloisInc/swanky.git", branch = "dev"}
+# fancy-garbling = {git = "https://github.com/GaloisInc/swanky.git", branch = "dev"}
+fancy-garbling = {path = "../swanky/fancy-garbling", features = ["serde1"] }
 scuttlebutt = {git = "https://github.com/GaloisInc/swanky.git", branch = "dev"}
 itertools = "0.8.0"
 rand = "0.7.2"
