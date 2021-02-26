@@ -8,8 +8,10 @@ use itertools::Itertools;
 pub fn bool_info(nn: &NeuralNet, bitwidth: usize, _field_size: Option<usize>) {
     println!("{}", "* Getting circuit info".green());
 
+    println!("{:?}", nn.computation_info());
+
     ////////////////////////////////////////////////////////////////////////////////
-    // run the neural network with Informer
+    // run the neural network with low level Informer
     let mut pb = pbr::ProgressBar::new(nn.nlayers() as u64);
     let mut informer = DepthInformer::new();
 

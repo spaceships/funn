@@ -5,12 +5,15 @@
 //! that we only have to say how to evaluate each kind of layer once (in `Layer::eval`),
 //! minimizing NN evaluation bugs.
 
-use crate::ops::{Accuracy, NeuralNetOps};
+use crate::ops::{Accuracy, NeuralNetOps, ComputationInfo};
 use fancy_garbling::{BinaryBundle, Bundle, CrtBundle, Fancy, FancyInput, HasModulus};
 use itertools::{iproduct, Itertools};
 use ndarray::Array3;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::rc::Rc;
+use std::cell::RefCell;
+use std::cmp::max;
 
 /// Each layer optionally contains weights and biases. If they are not present, the
 /// weights and biases will be treated as secret (garbler inputs).
@@ -171,6 +174,70 @@ impl Layer {
     pub fn output_size(&self) -> usize {
         let (x, y, z) = self.output_dims();
         x * y * z
+    }
+
+    pub fn computation_info(&self, input: &Array3<usize>, info: Rc<RefCell<ComputationInfo>>)
+        -> Array3<usize>
+    {
+        let _info = info.clone();
+        let enc = move |_: &mut usize, _x: i64| {
+            _info.borrow_mut().nenc += 1;
+            0
+        };
+
+        let _info = info.clone();
+        let sec = move |_: &mut usize, _x: Option<i64>| {
+            _info.borrow_mut().nsec += 1;
+            0
+        };
+
+        let _info = info.clone();
+        let proj = move |_: &mut usize, inp: &usize, _opt_w: Option<i64>| {
+            _info.borrow_mut().nproj += 1;
+            inp + 1
+        };
+
+        let _info = info.clone();
+        let add = move |_: &mut usize, x: &usize, y: &usize| {
+            _info.borrow_mut().nadd += 1;
+            max(*x, *y)
+        };
+
+        let _info = info.clone();
+        let cmul = move |_: &mut usize, x: &usize, _y: i64| {
+            _info.borrow_mut().ncmul += 1;
+            x + 1
+        };
+
+        let _info = info.clone();
+        let max = move |_: &mut usize, xs: &[usize]| {
+            _info.borrow_mut().nmax += 1;
+            xs.iter().max().unwrap() + 1
+        };
+
+        let _info = info.clone();
+        let act = move |_: &mut usize, a: &str, x: &usize| {
+            if _info.borrow().act_calls.contains_key(a) {
+                *_info.borrow_mut().act_calls.get_mut(a).unwrap() += 1
+            } else {
+                _info.borrow_mut().act_calls.insert(a.to_string(), 1);
+            }
+            x + 1
+        };
+
+        let ops = NeuralNetOps {
+            enc: Box::new(enc),
+            sec: Box::new(sec),
+            add: Box::new(add),
+            cmul: Box::new(cmul),
+            proj: Box::new(proj),
+            max: Box::new(max),
+            act: Box::new(act),
+            zero: Box::new(|_| 0),
+        };
+
+        let layer_output = self.eval(&mut 0, input, &ops, false);
+        layer_output
     }
 
     /// Evaluate this layer in plaintext while finding the max value on a wire.

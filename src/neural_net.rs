@@ -7,6 +7,7 @@ use ndarray::Array3;
 use pbr::ProgressBar;
 use serde_json::{self, Value};
 use std::fs::File;
+use crate::ops::ComputationInfo;
 
 /// The neural network struct
 #[derive(Clone)]
@@ -167,6 +168,22 @@ impl NeuralNet {
             acc = layer.as_finite_field(b, field_size, n_field_elems, &acc);
         }
         acc.iter().cloned().collect_vec()
+    }
+
+    pub fn computation_info(&self) -> ComputationInfo {
+        use std::cell::RefCell;
+        use std::rc::Rc;
+
+        let info = Rc::new(RefCell::new(ComputationInfo::new()));
+        let mut input = Array3::from_shape_fn(self.layers[0].input_dims(), |_| 0_usize);
+
+        for layer in self.layers.iter() {
+            input = layer.computation_info(&input, info.clone());
+        }
+
+        let mut info = Rc::try_unwrap(info).unwrap().into_inner();
+        info.depth = *input.iter().max().unwrap();
+        info
     }
 
     /// Find max/min number of bits necessary for a value on any wire in the neural network by layer.

@@ -296,3 +296,32 @@ impl<F: Fancy<Item = W>, W: Clone + HasModulus> NeuralNetOps<F, W> {
         }
     }
 }
+
+use std::collections::HashMap;
+
+#[derive(Debug)]
+pub struct ComputationInfo {
+    pub nenc: usize,
+    pub nsec: usize,
+    pub nadd: usize,
+    pub ncmul: usize,
+    pub nproj: usize,
+    pub nmax: usize,
+    pub act_calls: HashMap<String, usize>,
+    pub depth: usize,
+}
+
+impl ComputationInfo {
+    pub fn new() -> Self {
+        Self {
+            nenc: 0,
+            nsec: 0,
+            nadd: 0,
+            ncmul: 0,
+            nproj: 0,
+            nmax: 0,
+            act_calls: HashMap::new(),
+            depth: 0,
+        }
+    }
+}
